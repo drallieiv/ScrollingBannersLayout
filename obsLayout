@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Image Tiling</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="tileCanvas"></canvas>
+    <script>
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const imageUrls = [];
+            let i = 0;
+            while (params.has(`imageUrl${i}`)) {
+                imageUrls.push(params.get(`imageUrl${i}`));
+                i++;
+            }
+            return {
+                imageUrls: imageUrls,
+                speedX: parseFloat(params.get('speedX')) || -0.5,
+                speedY: parseFloat(params.get('speedY')) || -0.3,
+                rotationAngle: parseFloat(params.get('rotationAngle')) || 15,
+                imgHeight: parseFloat(params.get('imgHeight')) || 100,
+            };
+        }
+
+        const { imageUrls, speedX, speedY, rotationAngle, imgHeight } = getUrlParams();
+
+        let cols = imageUrls.length;
+
+        const canvas = document.getElementById("tileCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let offsetX = 0;
+        let offsetY = 0;
+
+        function imgWidthOf(images, col) {
+            let index = col % images.length;
+            return (images[index].width / images[index].height) * imgHeight;
+        }
+
+        function getOffset(images, col, totalWidth) {
+            let offset = Math.floor(col / images.length) * totalWidth;
+            let remainder = col % images.length;
+            for (let i = 0; i < remainder; i++) {
+                offset += imgWidthOf(images, i);
+            }
+            return offset;
+        }
+
+        async function loadImages(urls) {
+            return Promise.all(urls.map(url => {
+                return new Promise(resolve => {
+                    const img = new Image();
+                    img.crossOrigin = "Anonymous";
+                    img.src = url;
+                    img.onload = () => resolve(img);
+                });
+            }));
+        }
+
+        async function drawTiling() {
+            const images = await loadImages(imageUrls);
+
+            let totalWidth = 0;
+            for (let i = 0; i < cols; i++) {
+                totalWidth += imgWidthOf(images, i);
+            }
+
+            const totalHeight = imgHeight * Math.ceil(window.innerHeight / imgHeight);
+            const offsetFactor = totalWidth / 5;
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            let xModulo = Math.ceil(canvas.width / totalWidth);
+            let maxCol = cols * xModulo * 2;
+            let maxRows = Math.ceil(canvas.height / imgHeight) * 2;
+
+            const offscreenCanvases = images.map(img => {
+                const offscreenCanvas = document.createElement('canvas');
+                offscreenCanvas.width = img.width;
+                offscreenCanvas.height = img.height;
+                const offscreenCtx = offscreenCanvas.getContext('2d');
+                offscreenCtx.drawImage(img, 0, 0);
+                return offscreenCanvas;
+            });
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                for (let row = 0; row < maxRows * 2; row++) {
+                    for (let col = 0; col < maxCol; col++) {
+                        let imgWidth = imgWidthOf(images, col);
+                        let xOffset = (getOffset(images, col, totalWidth) + (row * offsetFactor) - offsetX) % (totalWidth * (xModulo + 1)) - totalWidth;
+                        let yOffset = (row * imgHeight - offsetY) % (totalHeight * 2) - imgHeight;
+
+                        ctx.drawImage(offscreenCanvases[col % images.length], 0, 0, offscreenCanvases[col % images.length].width, offscreenCanvases[col % images.length].height, xOffset, yOffset, imgWidth, imgHeight);
+                    }
+                }
+
+                offsetX = (offsetX + speedX) % totalWidth;
+                offsetY = (offsetY + speedY) % totalHeight;
+                requestAnimationFrame(animate);
+            }
+
+            ctx.rotate((-rotationAngle * Math.PI) / 180);
+            animate();
+        }
+
+        drawTiling();
+    </script>
+</body>
+</html>
