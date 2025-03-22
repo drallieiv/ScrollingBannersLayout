@@ -29,9 +29,9 @@
             }
             return {
                 imageUrls: imageUrls,
-                speedX: parseFloat(params.get('speedX')) || -0.5,
-                speedY: parseFloat(params.get('speedY')) || -0.3,
-                rotationAngle: parseFloat(params.get('rotationAngle')) || 15,
+                speedX: parseFloat(params.get('speedX')) || 0,
+                speedY: parseFloat(params.get('speedY')) || 0,
+                rotationAngle: parseFloat(params.get('rotationAngle')) || 0,
                 imgHeight: parseFloat(params.get('imgHeight')) || 100,
             };
         }
